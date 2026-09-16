@@ -1196,6 +1196,22 @@ def run_full_analysis(
         except Exception as e:
             logger.error(f"飞书文档生成失败: {e}")
 
+        # === 汰弱观察：55 日均分低于阈值时推送警示 ===
+        if results and not getattr(args, 'dry_run', False):
+            try:
+                from src.watchlist_alert import check_weak_stocks, format_weak_alert
+                weak = check_weak_stocks(
+                    [r.code for r in results],
+                    storage=pipeline.storage,
+                )
+                if weak:
+                    alert_msg = format_weak_alert(weak)
+                    logger.warning("汰弱观察: %s", [w[0] for w in weak])
+                    if pipeline.notifier.is_available() and not getattr(args, 'no_notify', False):
+                        pipeline.notifier.send(alert_msg, route_type="alert")
+            except Exception as e:
+                logger.error(f"汰弱检查失败: {e}")
+
         return _return_with_auto_backtest(
             deferred_failure_result
             if deferred_failure_result is not None
