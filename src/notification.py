@@ -63,6 +63,7 @@ from src.schemas.decision_action import (
 from bot.models import BotMessage
 from src.utils.sanitize import sanitize_diagnostic_text
 from src.formatters import strip_hidden_markdown_metadata
+from src.utils.traditional_chinese import maybe_convert_traditional
 from src.utils.data_processing import (
     signal_attribution_has_content,
     signal_attribution_weight_items,
@@ -1610,7 +1611,12 @@ class NotificationService(
                     "",
                 ])
 
-        # 底部（去除免责声明）
+        # 底部摘要表格（对齐的文本表格）
+        if results:
+            report_lines.extend(
+                self._build_summary_text_table(sorted_results, labels, report_language)
+            )
+
         report_lines.extend([
             "",
             f"*{labels['generated_at_label']}：{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}*",
@@ -1620,6 +1626,97 @@ class NotificationService(
             report_lines.append(f"*{labels['analysis_model_label']}：{', '.join(models)}*")
 
         return "\n".join(report_lines)
+
+    @staticmethod
+    def _cjk_width(text: str) -> int:
+        """Return display width accounting for CJK double-width characters."""
+        import unicodedata
+        w = 0
+        for ch in text:
+            if unicodedata.east_asian_width(ch) in ("W", "F"):
+                w += 2
+            else:
+                w += 1
+        return w
+
+    @staticmethod
+    def _pad_cjk(text: str, width: int) -> str:
+        """Pad string to target display width (CJK-aware)."""
+        import unicodedata
+        display_w = 0
+        for ch in text:
+            if unicodedata.east_asian_width(ch) in ("W", "F"):
+                display_w += 2
+            else:
+                display_w += 1
+        return text + " " * max(0, width - display_w)
+
+    @staticmethod
+    def _ascii_stock_name(result: AnalysisResult) -> str:
+        """Return an ASCII-safe stock name to avoid CJK misalignment in code blocks."""
+        name = result.name or ""
+        # If name contains CJK characters, fall back to code only
+        if any("\u4e00" <= ch <= "\u9fff" for ch in name):
+            return result.code
+        return name
+
+    def _build_summary_text_table(
+        self,
+        sorted_results: List[AnalysisResult],
+        labels: Dict[str, str],
+        report_language: str,
+    ) -> List[str]:
+        """Build an aligned text table summarizing all analysis results.
+
+        Stock column uses ASCII-only names to guarantee monospace alignment
+        in Discord code blocks (CJK chars have inconsistent width in monospace).
+        Advice/Trend columns can safely use CJK since all rows share similar
+        CJK content and the width delta is negligible.
+        """
+        rows = []
+        for r in sorted_results:
+            signal_text, _, _ = self._get_signal_level(r)
+            ascii_name = self._ascii_stock_name(r)
+            trend = localize_trend_prediction(r.trend_prediction, report_language)
+            rows.append((ascii_name, r.code, signal_text, str(r.sentiment_score), trend))
+
+        h_stock = "Stock"
+        h_advice = labels.get("advice_label", "Advice")
+        h_score = labels.get("score_label", "Score")
+        h_trend = labels.get("trend_label", "Trend")
+
+        # Stock column: pure ASCII, use len() directly
+        name_col = [f"{name}({code})" for name, code, *_ in rows]
+        w_name = max(len(h_stock), *(len(s) for s in name_col)) + 1
+
+        # Advice/Trend columns: may contain CJK, use display width
+        advice_col = [advice for *_, advice, score, trend in rows]
+        score_col = [score for *_, score, trend in rows]
+        trend_col = [trend for *_, trend in rows]
+
+        w_advice = max(self._cjk_width(h_advice), *(self._cjk_width(s) for s in advice_col)) + 1
+        w_score = max(self._cjk_width(h_score), *(self._cjk_width(s) for s in score_col)) + 1
+        w_trend = max(self._cjk_width(h_trend), *(self._cjk_width(s) for s in trend_col))
+
+        sep = f"+-{'-' * w_name}-+-{'-' * w_advice}-+-{'-' * w_score}-+-{'-' * w_trend}-+"
+
+        def _row(stock_cell, advice_cell, score_cell, trend_cell):
+            return (
+                f"| {stock_cell.ljust(w_name)} "
+                f"| {self._pad_cjk(advice_cell, w_advice)} "
+                f"| {self._pad_cjk(score_cell, w_score)} "
+                f"| {self._pad_cjk(trend_cell, w_trend)} |"
+            )
+
+        lines = ["", "---", "", "## 📋 " + labels.get("summary_heading", "Summary"), "", "```"]
+        lines.append(sep)
+        lines.append(_row(h_stock, h_advice, h_score, h_trend))
+        lines.append(sep)
+        for name, code, advice, score, trend in rows:
+            lines.append(_row(f"{name}({code})", advice, score, trend))
+        lines.append(sep)
+        lines.append("```")
+        return lines
 
     def generate_wechat_dashboard(self, results: List[AnalysisResult]) -> str:
         """
@@ -2677,6 +2774,7 @@ class NotificationService(
         Returns:
             Structured dispatch diagnostics.
         """
+        content = maybe_convert_traditional(content)
         context_success = self.send_to_context(content)
         if not self.should_broadcast_static_channels():
             if context_success:
