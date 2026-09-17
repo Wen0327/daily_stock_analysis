@@ -4369,9 +4369,11 @@ class StockAnalysisPipeline:
         report_type: ReportType,
     ) -> str:
         """Generate aggregate report with backward-compatible notifier fallback."""
+        from src.utils.traditional_chinese import maybe_convert_traditional
+
         generator = getattr(self.notifier, "generate_aggregate_report", None)
         if callable(generator):
-            return generator(results, report_type)
+            return maybe_convert_traditional(generator(results, report_type))
         if report_type == ReportType.BRIEF and hasattr(self.notifier, "generate_brief_report"):
-            return self.notifier.generate_brief_report(results)
-        return self.notifier.generate_dashboard_report(results)
+            return maybe_convert_traditional(self.notifier.generate_brief_report(results))
+        return maybe_convert_traditional(self.notifier.generate_dashboard_report(results))
