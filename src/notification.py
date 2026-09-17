@@ -1730,7 +1730,7 @@ class NotificationService(
         report_language: str,
     ) -> List[str]:
         """Build per-stock position advice: entry price for empty, SL/TP for holders."""
-        lines = ["", "### 🎯 " + labels.get("position_advice_heading", "持仓建议"), ""]
+        lines = ["", "### 🎯 " + labels.get("position_advice_heading", "持仓建议")]
 
         for r in sorted_results:
             dashboard = r.dashboard if hasattr(r, 'dashboard') and r.dashboard else {}
@@ -1758,10 +1758,11 @@ class NotificationService(
                 continue
 
             price_tag = f" @ **{current_price}**" if current_price else ""
-            parts = [f"**{ascii_name}({r.code})**{price_tag}"]
+            lines.append("---")
+            lines.append(f"**{ascii_name}({r.code})**{price_tag}")
             if no_pos or (ideal and ideal != 'N/A'):
                 entry_info = no_pos or f"{labels.get('ideal_buy_label', '理想买入点')}: {ideal}"
-                parts.append(f"  🆕 {labels.get('no_position_label', '空仓')}: {entry_info}")
+                lines.append(f"🆕 {labels.get('no_position_label', '空仓')}: {entry_info}")
             if has_pos or (stop_loss and stop_loss != 'N/A') or (take_profit and take_profit != 'N/A'):
                 holder_parts = []
                 if has_pos:
@@ -1770,10 +1771,7 @@ class NotificationService(
                     holder_parts.append(f"🛑{labels.get('stop_loss_label', '止损')} {stop_loss}")
                 if take_profit and take_profit != 'N/A':
                     holder_parts.append(f"🎊{labels.get('take_profit_label', '目标')} {take_profit}")
-                parts.append(f"  💼 {labels.get('has_position_label', '持仓')}: {' | '.join(holder_parts)}")
-
-            lines.extend(parts)
-            lines.append("")
+                lines.append(f"💼 {labels.get('has_position_label', '持仓')}: {' | '.join(holder_parts)}")
 
         return lines
 
