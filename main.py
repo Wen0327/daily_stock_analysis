@@ -1152,6 +1152,16 @@ def run_full_analysis(
                     f"评分 {r.sentiment_score} | {r.trend_prediction}"
                 )
 
+        # 推送独立摘要（决策仪表盘 → 大盘复盘 → 摘要 的最后一段）
+        if results and not getattr(args, 'no_notify', False):
+            try:
+                summary_content = pipeline.notifier.generate_summary_section(results)
+                if summary_content and pipeline.notifier.is_available():
+                    pipeline.notifier.send(summary_content, route_type="report")
+                    logger.info("摘要表格已推送")
+            except Exception as e:
+                logger.error(f"摘要推送失败: {e}")
+
         logger.info("\n任务执行完成")
 
         # === 新增：生成飞书云文档 ===
@@ -1202,7 +1212,7 @@ def run_full_analysis(
                 from src.watchlist_alert import check_weak_stocks, format_weak_alert
                 weak = check_weak_stocks(
                     [r.code for r in results],
-                    storage=pipeline.storage,
+                    storage=pipeline.db,
                 )
                 if weak:
                     alert_msg = format_weak_alert(weak)

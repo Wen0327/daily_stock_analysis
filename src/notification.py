@@ -449,6 +449,14 @@ class NotificationService(
             return self.generate_brief_report(results, report_date=report_date)
         return self.generate_dashboard_report(results, report_date=report_date)
 
+    def generate_summary_section(self, results: List[AnalysisResult]) -> str:
+        """Generate standalone summary table + position advice for separate push."""
+        report_language = self._get_report_language(results)
+        labels = get_report_labels(report_language)
+        sorted_results = sorted(results, key=lambda x: x.sentiment_score, reverse=True)
+        lines = self._build_summary_text_table(sorted_results, labels, report_language)
+        return "\n".join(lines)
+
     def _collect_models_used(self, results: List[AnalysisResult]) -> List[str]:
         if not self._should_show_llm_model():
             return []
@@ -1610,12 +1618,6 @@ class NotificationService(
                     "---",
                     "",
                 ])
-
-        # 底部摘要表格（对齐的文本表格）
-        if results:
-            report_lines.extend(
-                self._build_summary_text_table(sorted_results, labels, report_language)
-            )
 
         report_lines.extend([
             "",
