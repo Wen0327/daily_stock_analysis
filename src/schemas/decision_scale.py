@@ -24,8 +24,8 @@ class DecisionScaleBand:
 
 CANONICAL_DECISION_SCALE: tuple[DecisionScaleBand, ...] = (
     DecisionScaleBand(80, 100, "strong_buy", "buy", "buy", "强烈买入", "高胜率机会，可执行买入/加仓计划"),
-    DecisionScaleBand(60, 79, "buy", "buy", "buy", "买入", "偏积极机会，允许少量待确认项"),
-    DecisionScaleBand(40, 59, "watch", "watch", "hold", "观望", "信号分歧或确认不足，等待触发条件"),
+    DecisionScaleBand(55, 79, "buy", "buy", "buy", "买入", "趋势偏多或技术面积极，可分批建仓"),
+    DecisionScaleBand(40, 54, "watch", "watch", "hold", "观望", "信号分歧或确认不足，等待触发条件"),
     DecisionScaleBand(20, 39, "reduce", "reduce", "sell", "减仓", "风险明显抬升，优先降低暴露"),
     DecisionScaleBand(0, 19, "sell", "sell", "sell", "卖出", "趋势或风险显著恶化，优先退出"),
 )
@@ -35,8 +35,8 @@ CANONICAL_DECISION_SCALE_PROMPT_ZH = """## Canonical 评分与动作口径
 
 - `sentiment_score`、`operation_advice`、三态 `decision_type` 与八态 `action` 必须按同一口径表达。
 - 80-100：强烈买入，`action=buy`，`decision_type=buy`。
-- 60-79：买入，`action=buy`，`decision_type=buy`。
-- 40-59：观望，`action=watch`，`decision_type=hold`。
+- 55-79：买入，`action=buy`，`decision_type=buy`。
+- 40-54：观望，`action=watch`，`decision_type=hold`。
 - 20-39：减仓，`action=reduce`，`decision_type=sell`。
 - 0-19：卖出，`action=sell`，`decision_type=sell`。
 - `decision_type` 只保留 `buy|hold|sell` 兼容统计；更细建议必须写入 `action`。
