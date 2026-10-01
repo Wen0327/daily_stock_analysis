@@ -1760,18 +1760,21 @@ class NotificationService(
             price_tag = f" @ **{current_price}**" if current_price else ""
             lines.append("---")
             lines.append(f"**{ascii_name}({r.code})**{price_tag}")
-            if no_pos or (ideal and ideal != 'N/A'):
-                entry_info = no_pos or f"{labels.get('ideal_buy_label', '理想买入点')}: {ideal}"
-                lines.append(f"🆕 {labels.get('no_position_label', '空仓')}: {entry_info}")
-            if has_pos or (stop_loss and stop_loss != 'N/A') or (take_profit and take_profit != 'N/A'):
-                holder_parts = []
-                if has_pos:
-                    holder_parts.append(has_pos)
-                if stop_loss and stop_loss != 'N/A':
-                    holder_parts.append(f"🛑{labels.get('stop_loss_label', '止损')} {stop_loss}")
-                if take_profit and take_profit != 'N/A':
-                    holder_parts.append(f"🎊{labels.get('take_profit_label', '目标')} {take_profit}")
-                lines.append(f"💼 {labels.get('has_position_label', '持仓')}: {' | '.join(holder_parts)}")
+
+            # 空仓：简短动作（不追买 / 等 xxx 进场）
+            if no_pos:
+                lines.append(f"🆕 空仓: {no_pos}")
+            elif ideal and ideal != 'N/A':
+                lines.append(f"🆕 空仓: 等 {ideal} 进场")
+
+            # 持仓：止损 + 目标
+            hold_parts = []
+            if stop_loss and stop_loss != 'N/A':
+                hold_parts.append(f"🛑止损 {stop_loss}")
+            if take_profit and take_profit != 'N/A':
+                hold_parts.append(f"🎊目标 {take_profit}")
+            if hold_parts:
+                lines.append(f"💼 持仓: {' | '.join(hold_parts)}")
 
         return lines
 
